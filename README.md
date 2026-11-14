@@ -34,6 +34,20 @@ installation et aucune connexion Internet ne sont nécessaires.
   Les anciennes archives incompatibles sont refusées explicitement.
   Les fichiers se nomment `pouls-paysage-<tours>-tours-<source>.mp4`.
 
+## Simulations paramétriques
+
+Le notebook `simulation-parametrique.ipynb` répète les simulations avec un
+électorat uniforme, sur une grille de paramètres définie dans le notebook. Il
+reprend les règles du moteur, mais conserve un nombre fixe de candidats (sans
+émergence ni remplacement).
+Les valeurs de référence correspondent à l'application ; `PARAMETER_GRID`,
+`N_REPLICATES` et `T_PERIODS` sont modifiables. Le notebook utilise NumPy,
+pandas et Matplotlib. Il trace notamment les parts de marché moyennes dans le
+temps, avec une bande d'un écart-type calculé à partir de la variance entre
+réplications. Chaque exécution enregistre dans `simulation/data` les données
+de synthèse, les trajectoires détaillées et les paramètres utilisés ; les noms
+horodatés préservent les jeux précédents.
+
 ## Utilisation
 
 Configuration des paramètres au chargement et après **Réinitialiser** :
