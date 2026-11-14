@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<title>Pouls — Vidéo des 500 tours</title>
+<style>
+  body { margin: 20px; background: #e8edf2; color: #172635; font: 16px system-ui; }
+  canvas { display: block; width: min(100%, 1280px); height: auto; margin: 15px 0; background: white; }
+  button, a { padding: 10px 15px; font: inherit; }
+</style>
+<h1>Pouls — L’espace de la politique</h1>
+<p id="film-description">Relecture de la référence, graine 314159. Uniquement la bande colorée du paysage politique, sans son ni annotations.</p>
+<button id="load-experiment">Charger la dernière simulation</button>
+<button id="record">Enregistrer la vidéo MP4</button>
+<a id="download" hidden>Télécharger la vidéo</a>
+<span id="status" role="status"></span>
+<canvas id="film" width="1600" height="344" aria-label="Bande colorée du paysage politique, avec abstention en blanc"></canvas>
+<script src="model.js"></script>
+<script src="party-style.js"></script>
+<script src="simulation-video-data.js"></script>
+<script>
+const canvas = document.getElementById("film"), ctx = canvas.getContext("2d");
+let states = filmData.states, parameters = filmData.parameters;
+let generations = PartyStyle.timeline(states[0].partyGenerations || states[0].positions.map(() => 0), states.slice(1));
+let points = Hotelling.distribution(parameters);
+let sourceSuffix = "reference";
+function drawFrame(t) {
+  const state = states[t];
+  const palette = generations[t].map((generation, i) => PartyStyle.color(i, generation));
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const assignments = Hotelling.evaluate(Hotelling.noisePoints(points, state.positions, parameters, state.noiseSeed),
+    state.positions, { ...parameters, candidateScales: state.scales }, true).assignments;
+  const maximumDensity = Math.max(...points.map(point => point.density));
+  const count = state.positions.length;
+  const bottom = assignments.map(() => canvas.height);
+  for (let i = 0; i <= count; i++) {
+    const top = assignments.map((point, j) => bottom[j] - canvas.height * point.density / maximumDensity *
+      (i < count ? point.probabilities[i] : point.winners.length === 0 ? 1 : 0));
+    ctx.beginPath();
+    bottom.forEach((yy, j) => j === 0 ? ctx.moveTo(0, yy) : ctx.lineTo(canvas.width * j / (bottom.length - 1), yy));
+    for (let j = top.length - 1; j >= 0; j--) ctx.lineTo(canvas.width * j / (top.length - 1), top[j]);
+    ctx.closePath(); ctx.fillStyle = i < count ? palette[i] : "white";
+    ctx.globalAlpha = i < count ? 0.8 : 1;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    top.forEach((yy, j) => { bottom[j] = yy; });
+  }
+}
+drawFrame(0);
+function loadExperiment() {
+  if (document.getElementById("record").disabled) throw new Error("Un enregistrement est déjà en cours.");
+  const saved = localStorage.getItem("agora-experiment");
+  if (!saved) throw new Error("Aucune simulation enregistrée dans ce navigateur.");
+  const current = JSON.parse(saved);
+  if (current.noiseModel !== "additive-gaussian" || current.spatialCostModel !== "additive-distance" ||
+      current.choiceModel !== "softmax-cost-cap" || !current.rounds.length ||
+      !Array.isArray(current.initialScales) || !Number.isInteger(current.initialNoiseSeed) ||
+      !current.rounds.every(round => Array.isArray(round.scales) && Number.isInteger(round.noiseSeed))) {
+    throw new Error("Cette archive ne permet pas de reproduire fidèlement le paysage politique actuel.");
+  }
+  const nextStates = [{ positions: current.initial, scales: current.initialScales, noiseSeed: current.initialNoiseSeed },
+    ...current.rounds];
+  const nextPoints = Hotelling.distribution(current.settings);
+  const nextGenerations = PartyStyle.timeline(current.initialPartyGenerations || current.initial.map(() => 0), current.rounds);
+  states = nextStates; parameters = current.settings; points = nextPoints; generations = nextGenerations;
+  sourceSuffix = current.createdAt.replace(/[:.]/g, "-");
+  document.getElementById("film-description").textContent =
+    `Votre simulation du ${new Date(current.createdAt).toLocaleString("fr-FR")} : ${current.initial.length} places, ${current.rounds.length} tours. Uniquement la bande colorée, sans son ni annotations.`;
+  document.getElementById("download").hidden = true;
+  document.getElementById("status").textContent = "Simulation chargée sans nouveau tirage ni nouveau calcul de trajectoire.";
+  drawFrame(0);
+}
+window.recordFilm = async () => {
+  const status = document.getElementById("status"), button = document.getElementById("record");
+  if (button.disabled) throw new Error("Un enregistrement est déjà en cours.");
+  button.disabled = true;
+  document.getElementById("download").hidden = true;
+  let stream, recorder;
+  try {
+    if (!globalThis.MediaRecorder || !canvas.captureStream) throw new Error("Enregistrement vidéo non pris en charge.");
+    const mimeType = ["video/mp4;codecs=avc1.420028", "video/mp4;codecs=avc1"]
+      .find(type => MediaRecorder.isTypeSupported(type));
+    if (!mimeType) throw new Error("Ce navigateur ne permet pas l’enregistrement MP4/H.264. Utilisez une version récente de Chrome ou Edge compatible.");
+    stream = canvas.captureStream(30);
+    const chunks = [];
+    recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 3500000 });
+    let recordingError;
+    const stopped = new Promise(resolve => {
+      recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+      recorder.onstop = () => resolve(new Blob(chunks, { type: "video/mp4" }));
+      recorder.onerror = event => { recordingError = event.error || new Error("Échec de l’encodeur MP4."); };
+    });
+    recorder.start();
+    for (let t = 0; t < states.length; t++) {
+      if (recordingError) throw recordingError;
+      drawFrame(t); status.textContent = `Tour ${t} / ${states.length - 1}`;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    if (recordingError) throw recordingError;
+    recorder.stop();
+    const blob = await stopped;
+    if (recordingError) throw recordingError;
+    if (blob.size === 0) throw new Error("L’encodeur MP4 n’a produit aucune donnée.");
+    if (window.filmUrl) URL.revokeObjectURL(window.filmUrl);
+    window.filmUrl = URL.createObjectURL(blob);
+    const link = document.getElementById("download");
+    link.href = window.filmUrl; link.download = `pouls-paysage-${states.length - 1}-tours-${sourceSuffix}.mp4`; link.hidden = false;
+    status.textContent = `Vidéo MP4 prête : ${states.length - 1} tours, uniquement la bande colorée.`;
+    return { bytes: blob.size, mimeType: recorder.mimeType, states: states.length };
+  } catch (error) {
+    status.textContent = `Erreur vidéo : ${error.message}`; throw error;
+  } finally {
+    if (recorder && recorder.state !== "inactive") recorder.stop();
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    button.disabled = false;
+  }
+};
+document.getElementById("record").addEventListener("click", () => {
+  window.recordFilm().catch(error => { document.getElementById("status").textContent = `Erreur vidéo : ${error.message}`; });
+});
+document.getElementById("load-experiment").addEventListener("click", () => {
+  try { loadExperiment(); }
+  catch (error) { document.getElementById("status").textContent = `Erreur vidéo : ${error.message}`; }
+});
+</script>
+</html>

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pouls — L’espace de la politique</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="model.js" defer></script>
+  <script src="party-style.js" defer></script>
+  <script src="app.js" defer></script>
+  <script src="experiment.js" defer></script>
+</head>
+<body>
+  <header class="header">
+    <div><span class="eyebrow">L’ESPACE DE LA POLITIQUE</span><h1>Pouls<span> / Hotelling</span></h1></div>
+    <button id="reset" class="secondary">Réinitialiser</button>
+  </header>
+  <main>
+    <section class="intro">
+      <h2>Où se placer pour convaincre ?</h2>
+      <p>Explorez la compétition spatiale entre candidats face à un électorat uniforme ou bimodal. Déplacez les positions, ajustez les préférences et observez la participation.</p>
+    </section>
+    <div class="layout">
+      <aside class="panel controls">
+        <h2><span class="section-number">01</span> L’électorat</h2>
+        <label class="count-label" for="distribution-type">Distribution</label>
+        <select id="distribution-type"><option value="bimodal">Mélange à deux modes</option><option value="uniform" selected>Uniforme</option></select>
+        <p id="distribution-description" class="hint">Deux gaussiennes tronquées sur l’axe politique.</p>
+        <div id="distribution-controls"></div>
+        <h2><span class="section-number">02</span> Le coût du vote</h2>
+        <p class="formula">cᵢ(x, t) = max(0, kᵢ + β · |x − pᵢ|<sup>α</sup> + εᵢ)</p>
+        <div class="segmented" aria-label="Forme du coût">
+          <div class="cost-option">
+            <a class="reference-link" href="#ref-hotelling">Hotelling (1929)</a>
+            <button id="linear" class="secondary">Linéaire · α = 1</button>
+          </div>
+          <div class="cost-option">
+            <a class="reference-link" href="#ref-daspremont">d’Aspremont, Gabszewicz &amp; Thisse (1979)</a>
+            <button id="quadratic" class="secondary">Quadratique · α = 2</button>
+          </div>
+        </div>
+        <div id="cost-controls"></div>
+        <p class="hint">kᵢ est le coût de base, même à distance nulle. β mesure l’impact de la distance ; β = 0 supprime cet effet. Sans bruit, un candidat dont kᵢ dépasse k_max n’est acceptable pour aucun électeur.</p>
+        <p class="hint">ε est un bruit additif gaussien centré, d’écart-type 0,1 unité de coût par défaut, et non un pourcentage. Un tirage par électeur et candidat est renouvelé à chaque tour, puis conservé pendant toutes les optimisations et le vote du tour. Le coût total est borné à zéro.</p>
+        <h3>Modèle de choix</h3>
+        <p class="formula">P(i | x) ∝ exp(−cᵢ(x)) si cᵢ(x) ≤ k_max</p>
+        <p class="hint">Chaque électeur choisit probabilistiquement par softmax parmi les candidats dont le coût spatial ne dépasse pas k_max. Si tous les coûts dépassent k_max, il s’abstient.</p>
+        <h3>Effet de réputation</h3>
+        <p class="formula">kᵢ(t+1) = kᵢ(t) · exp[η · (1/N − Sᵢ)]</p>
+        <div id="reputation-controls"></div>
+        <p class="hint">η règle l’intensité de la réputation : 0,04 par défaut ; à 0, les coûts restent fixes entre renouvellements. Modifier η réinitialise les coûts à k₀ et l’historique à l’observation du scénario actuel. Sᵢ est la moyenne des trois dernières parts des exprimés, pondérées 3, 2, 1 de la plus récente à la plus ancienne. Pour η &gt; 0, au-dessus de 1/N, le coût baisse ; en dessous, il augmente. Au démarrage, seuls les scores disponibles sont utilisés, avec renormalisation des poids. Sans exprimés, le score est nul.</p>
+      </aside>
+      <div class="workspace">
+        <section class="panel chart-panel">
+          <div class="panel-heading"><div><span class="eyebrow">DISTRIBUTION & POSITIONS</span><h2>Le paysage politique</h2></div><span class="badge">Axe −1 à +1</span></div>
+          <div id="legend" class="legend"></div>
+          <svg id="landscape" viewBox="0 0 900 310" role="img" aria-label="Densité électorale, parts de marché empilées et positions des candidats"></svg>
+          <div class="axis-labels"><span>← Très à gauche</span><span>Centre</span><span>Très à droite →</span></div>
+          <p class="hint">Une palette jamaïcaine, avec une famille de couleur par place : A rouge vif, B orange corail, C or, D jaune solaire, E vert citron, F vert feuille, G vert profond. Chaque nouveau parti prend une nouvelle teinte ; A·2 désigne par exemple le deuxième parti à la place A. Les couleurs ne dépendent d’aucune position. L’abstention reste en blanc.</p>
+          <p class="hint">Les couches empilées montrent les parts de marché locales des candidats ; les abstentionnistes sont en blanc. Leur somme reconstitue la densité de l’électorat.</p>
+          <div class="chart-actions">
+            <button id="round">Un tour de meilleures réponses</button>
+            <button id="simulate">Simuler 500 tours</button>
+            <button id="interrupt" class="secondary" disabled>Interrompre</button>
+          </div>
+          <p class="hint">Chaque simulation est limitée à 500 tours. Après les nouvelles entrées éventuelles, les candidats restants optimisent simultanément contre le même état, sans observer les nouvelles décisions des autres. Les changements sont révélés ensemble à la fin du tour. Les graphes, les scores et les coûts sont actualisés après chaque tour pour suivre la dynamique.</p>
+          <p id="status" role="status" aria-live="polite">Modifiez les positions ou lancez une recherche.</p>
+          <p id="error" role="alert" hidden></p>
+          <p id="simulation-status" role="status" aria-live="polite">Aucune trajectoire calculée.</p>
+          <progress id="simulation-progress" max="500" value="0" hidden aria-label="Tours calculés"></progress>
+        </section>
+        <section class="metrics" aria-label="Indicateurs de la simulation">
+          <div class="panel metric"><span>Participation</span><strong id="turnout">—</strong></div>
+          <div class="panel metric"><span>Coût moyen attendu des votants¹</span><strong id="mean-cost">—</strong></div>
+        </section>
+        <section class="panel">
+          <div class="panel-heading">
+            <div><span class="eyebrow">STRATÉGIES</span><h2>Les candidats</h2></div>
+            <label class="count-label" for="candidate-count">Nombre
+              <select id="candidate-count"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select>
+            </label>
+          </div>
+          <div id="movement-controls"></div>
+          <p class="hint">Hors nouvelles entrées, |pᵢ(t+1) − pᵢ(t)| ≤ γ, dans [−1, +1]. γ = 0 fige les candidats en place ; γ = 2 autorise tout l’axe. Les coûts sont actualisés selon le succès passé, puis restent fixes pendant les recherches. Changer γ conserve le scénario et la mémoire ; les curseurs de position restent libres et réinitialisent les coûts et l’historique.</p>
+          <div id="candidates"></div>
+          <h3>Innovation et nouveaux entrants</h3>
+          <p class="hint">Un candidat réellement sans voix est remplacé au tour suivant : kᵢ = 1, réputation oubliée et position maximisant le nombre d’abstentionnistes du vote précédent qui deviennent admissibles à son offre. Recherche sur tout l’axe, au pas 0,01, avec le bruit du nouveau tour ; seul un ex æquo est départagé au hasard. Cette première position n’est pas bornée par γ ; l’entrant ne se déplace pas une seconde fois dans ce tour. Les autres candidats optimisent simultanément après ces arrivées. Sans abstentionnistes, l’entrée est reportée. Chaque nouveau parti reçoit une nouvelle teinte et un numéro de génération dans sa place. Les points cerclés de blanc sur les trajectoires signalent les nouvelles entrées.</p>
+          <p id="cost-cap-state" class="hint"></p>
+          <div class="strategy-footer">
+            <p class="hint">Chaque candidat optimise une seule fois à partir du même état passé. Les positions et coûts choisis sont appliqués ensemble, puis les votes sont calculés. Les gains anticipés individuellement ne sont pas nécessairement réalisés lorsque tous les concurrents changent aussi.</p>
+          </div>
+        </section>
+        <section class="panel" id="experiment-panel">
+          <div class="panel-heading">
+            <div><span class="eyebrow">DYNAMIQUE / 500 TOURS</span><h2>Évolution des positions et des coûts</h2></div>
+          </div>
+          <p class="hint">Départ : positions, coefficients k, historique des scores et paramètres actuels. Chaque tour actualise les coûts selon le succès passé, calcule les décisions simultanées, puis applique les positions ensemble et enregistre le nouveau score. Relancer poursuit avec les coûts et la mémoire de l’état final.</p>
+          <div id="experiment-results" hidden>
+            <p id="experiment-description" class="hint"></p>
+            <div id="trajectory-legend" class="legend"></div>
+            <p class="hint">Un nouveau parti change de teinte à son entrée. Les courbes de position et de coût sont interrompues à cette rupture ; les teintes passées sont conservées. Les légendes montrent les partis les plus récents, les infobulles identifient les anciens.</p>
+            <h3>Positions au fil des tours</h3>
+            <svg id="time-chart" viewBox="0 0 900 320" role="img" aria-label="Trajectoires des positions sur 500 tours"></svg>
+            <h3>Parts de marché et abstention au fil des tours</h3>
+            <div id="market-legend" class="legend"></div>
+            <svg id="market-chart" viewBox="0 0 900 320" role="img" aria-label="Parts de marché et abstention au fil des tours"></svg>
+            <p id="market-chart-note" class="hint"></p>
+            <div id="cost-charts" hidden>
+              <h3>Coefficients k appliqués par tour</h3>
+              <svg id="costs-chart" viewBox="0 0 900 320" role="img" aria-label="Coefficients de coût par candidat et par tour"></svg>
+            </div>
+            <p id="experiment-diagnostic" class="hint"></p>
+            <button id="export-experiment" class="secondary">Exporter les données (JSON)</button>
+          </div>
+        </section>
+        <details class="panel method">
+          <summary>Hypothèses & méthode</summary>
+          <p>Chaque électeur choisit selon un softmax des coûts, sans différence de valence ni « prix » : parmi les candidats dont le coût est inférieur ou égal à k_max, la probabilité est proportionnelle à exp(−cᵢ(x)). Si tous les coûts dépassent k_max, l’électeur s’abstient. Les parts affichées sont rapportées à l’ensemble des électeurs ; les parts parmi les suffrages exprimés sont indiquées séparément.</p>
+          <p>La distribution uniforme a une densité constante de 0,5 sur [−1, +1]. L’autre distribution est un mélange de deux normales, chacune normalisée sur cet intervalle. Le poids règle la proportion de la composante de gauche. Selon leur séparation et leur dispersion, les deux composantes ne produisent pas toujours deux pics distincts.</p>
+          <p>L’intégration utilise 1 600 points médians. La meilleure réponse teste les positions de la grille de pas 0,01 à distance au plus γ de la position actuelle, ainsi que cette position et les bornes accessibles, dans [−1, +1]. Les coûts et le bruit sont fixes pendant la recherche. La position actuelle est conservée sans gain. C’est un optimum approché sous contrainte de déplacement, pas une preuve d’équilibre de Nash sur tout l’axe.</p>
+          <p>Les candidats commencent avec kᵢ = k₀. Avant chaque décision, kᵢ est multiplié par exp[η · (1/N − Sᵢ)], où Sᵢ est le succès passé (poids 3, 2, 1) et η l’intensité réglable de la réputation, initialement 0,04. Les votes du tour courant ne servent qu’au tour suivant. Les déplacements n’affectent pas directement k. Le seuil k_max porte sur le coût spatial bruité ; la température du softmax est fixée à 1.</p>
+          <p>¹ Coût moyen attendu parmi les électeurs qui votent. Un indicateur de distance aux offres, pas un coût effectivement payé. Le modèle est illustratif, sans données électorales réelles.</p>
+        </details>
+        <section class="panel bibliography" aria-labelledby="references-title">
+          <h2 id="references-title">Bibliographie de référence</h2>
+          <p class="hint">Ces articles motivent les formes linéaire et quadratique du coût de distance. L’application y ajoute un choix probabiliste, l’abstention, le bruit et la réputation ; elle ne reproduit pas leurs modèles à l’identique.</p>
+          <ol>
+            <li id="ref-hotelling">Hotelling, H. (1929). <a href="https://doi.org/10.2307/2224214"><cite>Stability in Competition</cite></a>. <em>The Economic Journal</em>, 39(153), 41–57.</li>
+            <li id="ref-daspremont">d’Aspremont, C., Gabszewicz, J. J. &amp; Thisse, J.-F. (1979). <a href="https://doi.org/10.2307/1911955"><cite>On Hotelling’s “Stability in Competition”</cite></a>. <em>Econometrica</em>, 47(5), 1145–1150.</li>
+          </ol>
+          <a href="references.bib" download>Télécharger les références (BibTeX)</a>
+        </section>
+      </div>
+    </div>
+  </main>
+  <footer>POULS / Un modèle pour explorer, pas pour prédire.</footer>
+</body>
+</html>

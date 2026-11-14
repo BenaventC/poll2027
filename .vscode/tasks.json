@@ -1,0 +1,50 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Tester le modèle Hotelling",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--test",
+				"model.test.cjs"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Compiler le modèle théorique",
+			"type": "shell",
+			"command": "pdflatex",
+			"args": [
+				"-interaction=batchmode",
+				"-halt-on-error",
+				"-jobname=pouls-modele",
+				"modele-theorique.tex"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Générer les simulations de référence",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"simulation-results.cjs"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Compiler la bibliographie",
+			"type": "shell",
+			"command": "bibtex",
+			"args": [
+				"pouls-modele"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

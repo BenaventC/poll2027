@@ -1,0 +1,482 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{hyperref}
+\hypersetup{hidelinks}
+\definecolor{partiA}{HTML}{FE0000}
+\definecolor{partiB}{HTML}{F15F24}
+\definecolor{partiC}{HTML}{FEB616}
+\definecolor{partiD}{HTML}{FFE500}
+\pgfplotsset{pouls/.style={width=0.96\linewidth,height=5.1cm,xmin=0,xmax=500,
+  xlabel={Tour},grid=major,legend style={font=\small},
+  cycle list={{partiA,thick},{partiB,thick},{partiC,thick},{partiD,thick}}}}
+
+\title{Pouls\\L'espace de la politique\\
+\large Compétition spatiale, abstention, réputation et renouvellement}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+\begin{abstract}
+Pouls est un modèle exploratoire du marché politique comme marché du
+<< moins pire >>, organisé sur un axe gauche--droite. Il associe un choix probabiliste entre offres acceptables,
+un seuil d'abstention, des coûts de réputation endogènes et l'entrée de
+nouveaux candidats dans les zones délaissées. Cette note décrit le moteur
+effectivement utilisé et rapporte neuf simulations reproductibles de
+500 tours. Il ne s'agit ni d'une estimation sur données électorales ni
+d'une prévision.
+\end{abstract}
+
+\section{Références théoriques}
+
+\subsection{Le marché politique comme marché du moins pire}
+Le raisonnement repose sur l'énoncé suivant :
+\begin{quote}
+Le marché politique est un marché linéaire allant de la droite à la
+gauche. C'est un marché du moins pire : on vote pour ce qui nous
+convient le moins mal. Les effets de réputation sont déterminants
+et pèsent sur les coûts du vote.
+\end{quote}
+Cet énoncé constitue le parti pris théorique du modèle, et non une loi
+empirique établie par les simulations. Le terme \emph{linéaire} décrit
+ici l'organisation des offres sur un axe politique unique : les
+positions se comparent et s'ordonnent de la droite à la gauche.
+Il ne signifie pas que le coût de la distance doit être une fonction
+linéaire. Les coûts linéaire et quadratique sont tous deux compatibles
+avec ce même espace politique unidimensionnel. L'orientation graphique
+retenue, de $-1$ à gauche à $+1$ à droite, ne change pas ce raisonnement.
+
+Parler de marché revient à mettre en relation une distribution de
+préférences électorales et des offres politiques concurrentes. Chaque
+électeur a une position qui lui conviendrait idéalement ; les partis
+proposent des positions qui ne coïncident généralement pas exactement
+avec cette préférence. Il ne s'agit pas d'un marché à prix monétaire :
+le coût représente le désaccord et la difficulté à accepter une offre,
+non une somme effectivement payée.
+
+Le vote est alors envisagé comme un choix sous contrainte entre des
+offres imparfaites, plutôt que comme l'adhésion nécessaire à une offre
+idéale. On ne vote pas forcément pour ce qui convient pleinement,
+mais pour ce qui convient \emph{le moins mal} parmi les possibilités
+disponibles. Ce raisonnement distingue deux questions : quelle offre
+est relativement moins coûteuse que les autres, et existe-t-il encore
+une offre dont le coût reste acceptable ? La première organise la
+concurrence entre partis ; la seconde ouvre la possibilité de
+l'abstention. Même la meilleure offre disponible peut être trop
+coûteuse pour justifier un vote.
+
+\subsection{Différenciation spatiale}
+Hotelling \cite{hotelling1929} fournit le cadre de la concurrence entre
+offres localisées sur un axe, avec un coût lié à leur éloignement des
+consommateurs. Ici, les offres sont des candidats et la distance représente
+un désaccord politique. Le repère quadratique vient de
+d'Aspremont, Gabszewicz et Thisse \cite{daspremont1979}.
+La référence est bien de 1979. Ces articles concernent des modèles de
+concurrence économique ; leurs résultats d'équilibre ne se transposent
+pas automatiquement au présent jeu politique sans prix.
+
+\subsection{Aliénation et limite du choix du moins pire}
+Le coût maximal accepté a une justification politique précise :
+\emph{l'électeur peut refuser de voter même pour le candidat le plus
+proche, parce que celui-ci est encore trop éloigné de ses préférences}.
+Il ne suffit donc pas d'être le moins éloigné des candidats pour
+constituer une offre acceptable. C'est l'abstention par
+\emph{aliénation}, étudiée dans les modèles spatiaux de participation,
+notamment par Hinich et Ordeshook \cite{hinich1969}.
+Adams, Dow et Merrill \cite{adams2006} distinguent explicitement
+ses conséquences de celles de l'abstention par indifférence.
+
+L'indifférence concerne le faible écart entre les offres : l'électeur
+les juge trop semblables pour que leur départage justifie sa
+participation. L'aliénation concerne au contraire leur niveau absolu
+d'acceptabilité : aucune offre ne lui convient suffisamment, même
+s'il préfère nettement l'une aux autres. Un électeur peut donc être
+aliéné sans être indifférent. Dans Pouls, seule cette seconde logique
+déclenche l'abstention ; la proximité des coûts entre candidats ne
+provoque pas, à elle seule, de retrait du vote.
+
+Le seuil $k_{\max}$ représente ainsi une limite au compromis politique
+que l'électeur accepte de consentir, et non un simple coût matériel
+pour se rendre aux urnes. La règle est
+\[
+\text{abstention de }x\text{ au tour }t
+\quad\Longleftrightarrow\quad
+\min_i c_{i,t}(x)>k_{\max}.
+\]
+Le << moins pire >> reste un choix relatif, mais il n'oblige pas à
+accepter n'importe quelle offre : lorsque même la moins coûteuse
+dépasse cette limite, l'électeur s'abstient.
+
+Dans une version purement spatiale, à coûts de base identiques et sans
+bruit, la moins coûteuse est aussi la plus proche. Pouls étend cette
+logique au coût total, qui inclut la réputation et les chocs
+individuels : le candidat géométriquement le plus proche n'est donc
+pas nécessairement le moins coûteux. Le seuil commun à tous les
+électeurs et sa forme de coupure nette sont des hypothèses
+simplificatrices du modèle, non des résultats établis par ces
+références.
+
+\subsection{La réputation comme composante déterminante du coût}
+La proximité politique ne suffit pas à caractériser ce qui convient
+le moins mal. Deux partis situés au même endroit peuvent présenter
+des coûts différents si leur réputation diffère. Dans Pouls, cette
+réputation agit sur le coût de base $k_{i,t}$, qui s'ajoute au coût
+de distance : elle pèse donc sur l'ensemble de l'offre, y compris
+pour un électeur situé exactement à la position du parti.
+Une offre plus éloignée peut ainsi être préférée à une offre plus
+proche si son coût de base est suffisamment inférieur.
+
+La réputation ne désigne pas ici une qualité objective mesurée
+indépendamment du vote. Elle est représentée, par hypothèse, par le
+succès électoral récent. Un parti qui dépasse la part égale $1/N$
+voit son coût diminuer ; un parti qui reste en dessous voit son coût
+augmenter. Le soutien passé modifie ainsi les conditions du choix
+présent. La concurrence est cumulative : les partis n'affrontent pas
+seulement une distribution de préférences, mais aussi l'histoire de
+leurs succès et de leurs échecs.
+
+Les effets de réputation sont déterminants en un double sens dans
+ce mécanisme : ils modifient les probabilités relatives de vote
+\emph{et} peuvent faire entrer une offre dans l'ensemble acceptable
+ou l'en faire sortir. Le paramètre $\eta$ règle leur intensité ;
+leur poids effectif dépend des paramètres et de la trajectoire.
+Il ne s'agit donc pas d'affirmer qu'ils dominent toujours la distance.
+Le seuil d'abstention et le renouvellement des partis permettent
+d'étudier comment cet avantage acquis rencontre ses limites.
+
+\subsection{Choix probabiliste et extensions}
+Le choix discret probabiliste s'inscrit dans la tradition présentée par
+Manski et McFadden \cite{manski1981}. Le softmax employé est un logit
+multinomial de température fixée à 1, conditionnel à l'ensemble des offres
+acceptables. L'abstention n'est pas une option extérieure du logit :
+elle intervient seulement si cet ensemble est vide.
+Le bruit gaussien additif du coût est une hypothèse supplémentaire,
+distincte des erreurs de type valeur extrême qui peuvent fonder un logit.
+Le softmax ne découle donc pas ici du seul bruit gaussien.
+
+Le << moins pire >> est ainsi traduit de façon probabiliste, et non
+par une règle qui attribuerait toutes les voix à l'offre la moins
+coûteuse. Pour deux offres admissibles $i$ et $j$, leurs chances
+relatives vérifient
+\[
+\frac{P_{i,t}(x)}{P_{j,t}(x)}
+=\exp\!\left[c_{j,t}(x)-c_{i,t}(x)\right].
+\]
+Un coût plus faible rend donc une offre plus probable sans rendre
+son choix certain. Si toutes les offres dépassent le coût maximal
+accepté, aucune comparaison relative ne suffit à provoquer le vote :
+l'électeur s'abstient.
+
+La réputation à mémoire courte, la mobilité bornée et le renouvellement
+des candidats sont des hypothèses propres à Pouls, et non des résultats
+attribués aux références précédentes.
+
+\section{Hypothèses du modèle}
+
+\subsection{Électorat et conditions initiales}
+Les $N$ places de candidature, $2\leq N\leq7$, ont des positions
+$p_{i,t}\in[-1,1]$. L'électorat fixe a une densité $f$ de masse 1.
+L'application propose $f(x)=1/2$, ou le mélange
+\[
+f(x)=w h(x;\mu_L,\sigma_L)+(1-w)h(x;\mu_R,\sigma_R),
+\quad
+h(x;\mu,\sigma)=
+\frac{\phi((x-\mu)/\sigma)}
+{\sigma[\Phi((1-\mu)/\sigma)-\Phi((-1-\mu)/\sigma)]}.
+\]
+Chaque normale est tronquée et normalisée séparément sur $[-1,1]$.
+Le poids $w$ décrit une composante, pas la proportion située à gauche
+de zéro ; le mélange n'a pas nécessairement deux modes.
+Au chargement, l'électorat est uniforme et quatre candidats commencent
+en $p_{i,0}=0$, avec $k_{i,0}=k_0=1$.
+Le vote initial fournit la première observation de réputation.
+
+\subsection{Coût additif, softmax et abstention}
+Pour l'électeur $x$, le coût de l'offre $i$ au tour $t$ est
+\begin{equation}\label{eq:cost}
+\boxed{c_{i,t}(x)=\max\{0,\ k_{i,t}+\beta|x-p_{i,t}|^\alpha+
+\varepsilon_{i,t}(x)\}},\quad
+\varepsilon_{i,t}(x)\sim\mathcal N(0,\sigma^2).
+\end{equation}
+On impose $\alpha>0$, $\beta\geq0$, $k_{i,t}>0$ et $\sigma\geq0$.
+Le bruit est \emph{additif}, jamais multiplicatif ; $\sigma=0{,}1$
+désigne une unité de coût, pas 10\,\%. Un choc par point d'électorat et
+place de candidat est renouvelé à chaque tour, puis fixé pour toutes
+les positions testées, les décisions et le vote de ce tour.
+
+Le seuil $k_{\max}$ est le coût total maximal accepté, et non une borne
+portant seulement sur $k_i$. L'ensemble admissible dépend de l'électeur :
+\[
+\mathcal E_t(x)=\{i:c_{i,t}(x)\leq k_{\max}\}.
+\]
+La probabilité de vote est
+\begin{equation}
+P_{i,t}(x)=
+\begin{cases}
+\displaystyle\frac{\exp[-c_{i,t}(x)]}
+{\sum_{j\in\mathcal E_t(x)}\exp[-c_{j,t}(x)]},
+& i\in\mathcal E_t(x),\\[6pt]
+0,&\text{sinon}.
+\end{cases}
+\end{equation}
+Si $\mathcal E_t(x)=\varnothing$, l'électeur s'abstient.
+L'égalité au seuil est acceptée. À coûts finis, tout candidat admissible
+a une probabilité strictement positive : le choix n'est pas déterministe.
+L'intégration utilise les probabilités, sans simuler un bulletin individuel.
+
+Pour expliciter le lien avec l'aliénation spatiale, supposons
+$k_{i,t}=k$ pour tous les candidats, $\sigma=0$, $\beta>0$ et
+$k\leq k_{\max}$. Une offre est acceptable si et seulement si
+\[
+|x-p_{i,t}|\leq
+r,\qquad
+r=\left(\frac{k_{\max}-k}{\beta}\right)^{1/\alpha}.
+\]
+L'électeur s'abstient donc lorsque le candidat le plus proche est
+encore à une distance strictement supérieure à $r$. Si $k>k_{\max}$,
+aucune offre n'est acceptable, même à distance nulle. Avec des
+réputations différentes ou du bruit, c'est la condition sur le coût
+total, et non ce rayon commun, qui s'applique.
+
+Les voix sur l'ensemble de l'électorat, la participation et les parts
+des exprimés sont
+\[
+v_{i,t}=\int P_{i,t}(x)f(x)\,dx,\qquad
+T_t=\sum_i v_{i,t},\qquad
+s_{i,t}=\begin{cases}v_{i,t}/T_t,&T_t>0,\\0,&T_t=0.\end{cases}
+\]
+L'abstention vaut $a_t=1-T_t$. Numériquement, les exprimés sont mis à
+zéro si $T_t\leq10^{-10}$, mais un renouvellement exige toujours des
+\emph{voix réellement nulles}, pas cette convention ni un arrondi d'affichage.
+Les parts principales de l'application sont les $v_i$ ; la réputation
+emploie les $s_i$. Ainsi des parts totalisant 100\,\% des électeurs
+ne peuvent pas coexister avec 30\,\% d'abstention.
+
+\subsection{Réputation et mémoire individuelle}
+Soit $h_{i,t-1}\in\{0,1,2,3\}$ le nombre d'observations disponibles
+pour l'occupant actuel de la place $i$. Son succès passé est
+\[
+S_{i,t-1}=
+\begin{cases}
+\displaystyle\frac{\sum_{\ell=0}^{h_{i,t-1}-1}(3-\ell)s_{i,t-1-\ell}}
+{\sum_{\ell=0}^{h_{i,t-1}-1}(3-\ell)},&h_{i,t-1}>0,\\[6pt]
+1/N,&h_{i,t-1}=0.
+\end{cases}
+\]
+Pour un candidat qui reste en lice, le coût est actualisé avant le vote :
+\begin{equation}\label{eq:reputation}
+\boxed{k_{i,t}=k_{i,t-1}\exp[\eta(1/N-S_{i,t-1})]},\qquad\eta\geq0.
+\end{equation}
+Les trois poids sont donc $3,2,1$, avec renormalisation au démarrage.
+Il n'y a ni lissage exponentiel des scores ni mémoire des déplacements.
+Un succès supérieur à $1/N$ réduit le coût ; un succès inférieur
+l'augmente. À $\eta=0$, les coûts restent fixes \emph{entre renouvellements}.
+Le score produit au tour $t$ n'intervient qu'au tour suivant.
+Les coûts ne changent pas pendant les recherches de position.
+
+\subsection{Innovation : remplacer une offre sans voix}
+Au début du tour $t$, une place telle que $v_{i,t-1}=0$ accueille un
+nouvel entrant, sous réserve qu'il existe des abstentionnistes.
+Le coût est remis à \textbf{1}, même si $k_0\neq1$, et la mémoire du
+prédécesseur est oubliée pour cette seule place. Le nouveau candidat
+ne subit pas l'actualisation de réputation de son prédécesseur.
+
+Soit $\mathcal A_{t-1}=\{x:\mathcal E_{t-1}(x)=\varnothing\}$ le groupe
+des abstentionnistes, reconstitué avec les positions, coûts et chocs du
+\emph{vote précédent}. Pour une arrivée en $q$, on maximise
+\begin{equation}\label{eq:entry}
+R_{i,t}(q)=\int_{\mathcal A_{t-1}}
+\mathbf1\!\left\{\max(0,1+\beta|x-q|^\alpha+
+\varepsilon_{i,t}(x))\leq k_{\max}\right\}f(x)\,dx.
+\end{equation}
+La position d'entrée maximise donc la \textbf{masse d'abstentionnistes
+accessibles}, et non une densité ponctuelle, un tirage pondéré ou les
+voix totales anticipées. La recherche parcourt tout l'axe au pas $0{,}01$,
+avec les chocs du nouveau tour. Le hasard départage seulement les maxima
+égaux. Sans bruit et pour $\beta>0$, $k_{\max}\geq1$, la zone couverte
+est de rayon $[(k_{\max}-1)/\beta]^{1/\alpha}$ autour de $q$.
+
+Les arrivées multiples ciblent indépendamment le même groupe passé :
+elles peuvent donc se concurrencer. La couverture n'est pas un nombre
+de votes garanti, puisque le vote reste probabiliste et que les autres
+offres changent. Si aucune offre nouvelle ne peut rendre ces électeurs
+admissibles, le maximum peut être nul ; l'entrée n'assure pas le succès.
+Sans abstentionnistes, le renouvellement est reporté et signalé.
+Les lettres et familles de couleurs identifient les places. Dans
+l'application et la vidéo, chaque génération de parti reçoit une
+nouvelle teinte ; les courbes sont interrompues à la naissance du
+nouveau parti, plutôt que de suggérer un déplacement du prédécesseur.
+
+\subsection{Mobilité et calendrier d'un tour}
+La première position d'un entrant n'est pas soumise à $\gamma$.
+Il ne se déplace pas une seconde fois lors de son arrivée. Les autres
+candidats observent les arrivées, puis choisissent simultanément, chacun
+contre les positions de ce même état intermédiaire $\widetilde{\mathbf p}_t$ :
+\[
+p_{i,t}\in\operatorname*{arg\,max}_{q\in Q_{i,t}}
+\mathcal V_i(q,\widetilde{\mathbf p}_{-i,t};
+             \mathbf k_t,\boldsymbol\varepsilon_t).
+\]
+Ici $\mathcal V_i$ est la masse de voix espérées sur \emph{tout}
+l'électorat. L'ensemble $Q_{i,t}$ contient la grille de pas $0{,}01$
+dans $[p_{i,t-1}-\gamma,p_{i,t-1}+\gamma]\cap[-1,1]$,
+la position courante et les deux bornes exactes de cet intervalle.
+Ainsi $|p_{i,t}-p_{i,t-1}|\leq\gamma$ pour les candidats en place.
+$\gamma=0$ les immobilise ; $\gamma=2$ ouvre tout l'axe.
+Sans gain supérieur à $10^{-10}$, la position courante est conservée.
+Pour ces meilleures réponses ordinaires, le parcours gauche--droite
+peut départager des solutions nouvelles équivalentes.
+
+Un tour suit donc : (1) reconstruction du groupe abstentionniste et
+arrivées ; (2) actualisation de réputation des occupants conservés ;
+(3) meilleures réponses simultanées de ces derniers ; (4) application
+collective, vote et ajout des scores aux mémoires individuelles.
+Une optimisation individuelle ne renouvelle ou ne déplace que la place
+sélectionnée, mais actualise tous les coûts et toutes les mémoires.
+Les gains anticipés ne sont pas nécessairement réalisés quand les
+concurrents changent aussi de position.
+
+\subsection{Paramètres et implémentation}
+Les valeurs par défaut sont
+\[
+N=4,\quad\alpha=1,\quad\beta=3{,}5,\quad k_0=1,\quad
+k_{\max}=1{,}25,\quad\gamma=0{,}1,\quad\eta=0{,}04,\quad\sigma=0{,}1.
+\]
+L'intégration emploie $1\,600$ points médians et leur masse normalisée.
+Le softmax est stabilisé en retranchant le coût admissible minimal.
+Chaque simulation contient au plus 500 tours, soit 501 états avec le
+départ. Les graphes sont actualisés pas à pas ; les points cerclés
+signalent les arrivées. L'abstention est blanche et les sept couleurs
+de candidature sont contrastées. Les diagrammes de phase sont supprimés.
+Les graines, coûts, scores, arrivées et longueurs de mémoire sont
+exportés ; une interruption conserve les tours achevés.
+
+\section{Résultats des simulations}
+
+\subsection{Protocole reproductible}
+Les résultats ci-dessous ont été calculés avec le moteur commun
+\texttt{model.js}, sans ajustement forcé des parts de voix.
+Trois scénarios sont comparés, chacun pour les graines maîtresses
+$314159$, $271828$ et $161803$ : la référence aux paramètres ci-dessus,
+la suppression de la réputation ($\eta=0$), et le coût quadratique
+($\alpha=2$). Les autres paramètres restent identiques, avec quatre
+candidats initialement au centre et des coûts initiaux égaux à 1.
+
+Pour la graine maîtresse $r$ et le tour $t=0,\ldots,500$, la graine
+32 bits est formée des quatre premiers octets, en petit-boutiste, du
+SHA-256 de la chaîne UTF-8 \texttt{pouls:r:t}. Les tirages gaussiens
+du moteur et les ex aequo des entrées sont ainsi reproductibles.
+Les neuf séries sont stockées dans \texttt{simulation-results.json}.
+La table et les figures sont générées depuis ces calculs, et non
+recopiées d'une ancienne expérience de l'application.
+
+\subsection{Participation et renouvellement}
+\input{simulation-summary.tex}
+
+Dans la référence, l'abstention moyenne sur les 100 derniers tours
+vaut \csname abstMean0\endcsname\,\% en moyenne sur les trois graines ;
+elle varie de \csname abstMin0\endcsname\,\% à
+\csname abstMax0\endcsname\,\%. Deux trajectoires finissent autour
+de 30\,\%, mais la troisième à 56,8\,\% : \textbf{30\,\% n'est pas
+un niveau garanti par les paramètres par défaut}.
+Les 16 à 20 nouvelles entrées montrent que les places restent actives
+alors même que certains occupants disparaissent.
+
+Sans réputation, l'abstention moyenne finale est proche de
+\csname abstMean1\endcsname\,\%, sans renouvellement observé.
+Dans ces trois essais, tous les candidats conservent une petite base
+acceptable et leurs coûts restent à 1. Avec le coût quadratique,
+la même statistique descend à \csname abstMean2\endcsname\,\%.
+Cette comparaison conserve $\beta$ sans recalibrer l'échelle :
+$d^2<d$ pour $0<d<1$, mais $d^2>d$ pour $d>1$.
+Ce n'est donc pas une mesure d'un effet pur de courbure à couverture
+initiale constante.
+
+\subsection{Trajectoire illustrée et vidéo}
+Les figures suivantes reprennent la référence, graine $314159$,
+également utilisée pour la vidéo jointe. Au tour 500, les parts sur
+tout l'électorat, classées, valent environ
+$35{,}85$, $33{,}81$, $0{,}19$ et $0{,}09$\,\%.
+La concentration observée ne reproduit donc pas une suite géométrique
+imposée de type $40,20,10,5,\ldots$.
+La vidéo accélérée parcourt les mêmes 501 états, sans recalculer une
+trajectoire différente.
+Pour la lecture imprimée, les figures ci-dessous conservent une couleur
+de base par place ; l'application et la vidéo distinguent en plus les
+partis successifs par leur teinte et leur numéro de génération.
+
+\begin{figure}[htbp]\centering
+\begin{tikzpicture}\begin{axis}[pouls,ymin=-1,ymax=1,ylabel={Position},
+  legend columns=4,legend pos=north west]
+\foreach \col in {A,B,C,D}{
+  \addplot table[x=tour,y=p\col,col sep=comma]{simulation-trajectoires.csv};
+  \expandafter\addlegendentry\expandafter{\col}
+}
+\end{axis}\end{tikzpicture}
+\caption{Positions des quatre places de candidature, référence, graine 314159.
+Les sauts peuvent correspondre à un renouvellement exempt de la borne $\gamma$.}
+\end{figure}
+
+\begin{figure}[htbp]\centering
+\begin{tikzpicture}\begin{axis}[pouls,ymin=0,ylabel={Coût de base $k_i$}]
+\foreach \col in {A,B,C,D}{
+  \addplot table[x=tour,y=k\col,col sep=comma]{simulation-trajectoires.csv};
+}
+\end{axis}\end{tikzpicture}
+\caption{Coûts de base appliqués. Une nouvelle entrée ramène le coût à 1 ;
+les trajectoires ne suivent pas un unique candidat pendant 500 tours.}
+\end{figure}
+
+\begin{figure}[htbp]\centering
+\begin{tikzpicture}\begin{axis}[pouls,ymin=0,ymax=100,
+  ylabel={Part de l'électorat (\%)},legend columns=5,legend pos=north east]
+\foreach \col in {A,B,C,D}{
+  \addplot table[x=tour,y=v\col,col sep=comma]{simulation-trajectoires.csv};
+  \expandafter\addlegendentry\expandafter{\col}
+}
+\addplot[black,dashed,thick] table[x=tour,y=abstention,col sep=comma]{simulation-trajectoires.csv};
+\addlegendentry{Abstention}
+\end{axis}\end{tikzpicture}
+\caption{Voix espérées et abstention, rapportées à l'ensemble de l'électorat.}
+\end{figure}
+\clearpage
+
+\subsection{Interprétation et limites}
+La réputation produit un avantage cumulatif : un score élevé réduit le
+coût, élargit l'admissibilité et peut renforcer le score suivant.
+Le renouvellement réintroduit une offre à coût 1 auprès d'un groupe
+précédemment délaissé, sans assurer sa survie.
+Trois graines par scénario fournissent seulement une illustration
+descriptive : ni intervalle de confiance, ni calibration empirique,
+ni preuve de robustesse générale.
+
+L'état dynamique comprend les positions, les coûts, les trois derniers
+scores, les âges de mémoire des occupants et les tirages de coût.
+Des positions momentanément immobiles ne prouvent donc pas un équilibre.
+Le bruit renouvelé, les coûts évolutifs, les décisions simultanées et
+les entrées rendent une convergence déterministe non garantie.
+Les maxima sont ceux de grilles finies, pas une preuve d'optimalité
+continue. Une étude complémentaire devrait varier les conditions
+initiales, les graines, le nombre de candidats et la résolution, puis
+tester les distributions non uniformes.
+
+\paragraph{Reproduction.}
+Exécuter ces commandes, puis lancer deux autres passes de compilation :
+\begin{quote}\small
+\begin{verbatim}
+node simulation-results.cjs
+pdflatex -jobname=pouls-modele modele-theorique.tex
+bibtex pouls-modele
+\end{verbatim}
+\end{quote}
+Le PDF produit est \texttt{pouls-modele.pdf}.
+Les fichiers de données et la vidéo sont fournis à côté du document.
+
+\bibliographystyle{plain}
+\bibliography{references}
+\end{document}
